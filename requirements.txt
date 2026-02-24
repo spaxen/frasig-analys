@@ -3,5 +3,5 @@ spacy==3.7.5
 benepar
 nltk
 svgling
-https://github.com/explosion/spacy-models/releases/download/sv_core_news_lg-3.7.0/sv_core_news_lg-3.7.0-py3-none-any.whl
+https://github.com/explosion/spacy-models/releases/download/sv_core_news_md-3.7.0/sv_core_news_md-3.7.0-py3-none-any.whl
 gunicorn
