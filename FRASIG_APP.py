@@ -1,31 +1,41 @@
-# Lägg till detta högst upp vid de andra import-raderna
-import benepar
 import os
+import warnings
+# Tvinga protobuf att använda python-implementationen för bättre kompatibilitet
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
 from flask import Flask, render_template_string, request
 import spacy
-from benepar import BeneparComponent
+import benepar
+import nltk
 from nltk.tree import Tree
-import warnings
 
 # Inställningar
 warnings.filterwarnings("ignore")
 app = Flask(__name__)
 
-# 1. Ladda modellerna vid start
+# --- FIX FÖR RENDER: Ladda ner Benepar-modell till lokal mapp ---
+nltk_data_path = os.path.join(os.getcwd(), 'nltk_data')
+if not os.path.exists(nltk_data_path):
+    os.makedirs(nltk_data_path)
+nltk.data.path.append(nltk_data_path)
+
 print("Laddar High-Precision-modeller...")
-# Lägg till detta precis innan nlp = spacy.load...
+
+# 1. Ladda ner Benepar-modellen om den saknas
 try:
-    benepar.download_model("benepar_sv2")
+    benepar.download('benepar_sv2', download_dir=nltk_data_path)
 except Exception as e:
-    print(f"Modellen fanns redan eller kunde inte laddas: {e}")
+    print(f"Information om modellnedladdning: {e}")
+
+# 2. Ladda spaCy-modellen (Medium-versionen för att spara RAM)
 nlp = spacy.load("sv_core_news_md")
+
+# 3. Koppla ihop Benepar med spaCy
 if "benepar" not in nlp.pipe_names:
     nlp.add_pipe("benepar", config={"model": "benepar_sv2"})
 
+# Översättningskarta för etiketter
 label_map = {
-    # Fraser
     "S": "Sats",
     "NP": "NP",
     "VP": "VP",
@@ -35,21 +45,19 @@ label_map = {
     "ADVP": "AdvP",
     "AVP": "AdvP",
     "PRN": "Parentes",
-
-    # Ordklasser
     "NN": "Subst",
-    "PM": "Egennamn",  # VIKTIG: För namn på personer/platser
+    "PM": "Egennamn",
     "VB": "Verb",
     "JJ": "Adj",
     "AB": "Adv",
     "PN": "Pron",
     "PS": "Poss. pron.",
-    "HP": "Rel. pron.",   # Relativa pronomen ("som")
-    "HA": "Rel. adv.",     # Relativa adverb ("där")
+    "HP": "Rel. pron.",
+    "HA": "Rel. adv.",
     "P" : "Prep",
     "KN": "Konj",
     "SN": "Subj",
-    "IE": "Inf-märke",    # Ordet "att"
+    "IE": "Inf-märke",
     "DT": "Determinerare",
     "RG": "Räkn Grundtal",
     "RO": "Räkn Ordningstal",
@@ -57,8 +65,6 @@ label_map = {
     "PL": "Partikel",
     "UO": "Utl",
     "INTJ": "Interj",
-
-    # Skiljetecken
     "MAD": "Skilj",
     "MID": "Skilj",
     "PAD": "Par",
@@ -66,7 +72,7 @@ label_map = {
 
 def clean_and_translate_tree(tree):
     """
-    Rensar XP, översätter etiketter och sätter ensamma finita verb i egna VP.
+    Rensar XP-noder, översätter etiketter och sätter ensamma verb i VP.
     """
     if isinstance(tree, str):
         return tree
@@ -74,14 +80,12 @@ def clean_and_translate_tree(tree):
     new_children = []
     for child in tree:
         if isinstance(child, Tree):
-            # 1. Eliminera XP-nivån (lyft upp barnen)
+            # Lyft upp barn från XP-noder
             if child.label() == "XP":
                 new_children.extend([clean_and_translate_tree(c) for c in child])
             
-            # 2. Skapa VP för ensamma verb (t.ex. "började")
-            # Om barnet är ett Verb (VB) men dess förälder INTE är en VP
+            # Skapa VP för ensamma verb som inte redan ligger i en VP
             elif child.label() == "VB" and tree.label() != "VP":
-                # Skapa en ny VP-nod och lägg verbet inuti den
                 v_node = clean_and_translate_tree(child)
                 new_vp = Tree("VP", [v_node])
                 new_children.append(new_vp)
@@ -94,13 +98,13 @@ def clean_and_translate_tree(tree):
     tree.clear()
     tree.extend(new_children)
 
-    # 3. Översätt etiketter från label_map
+    # Översätt etiketten
     label = tree.label()
     tree.set_label(label_map.get(label, label))
     
     return tree
 
-# 2. HTML-mall
+# HTML-mall för webbsidan
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -146,16 +150,16 @@ def index():
             sent = list(doc.sents)[0]
             psg_tree = Tree.fromstring(sent._.parse_string)
             
-            # Kör städningen (XP-lyften)
+            # Kör städning och översättning
             psg_tree = clean_and_translate_tree(psg_tree)
             
             tree_svg = psg_tree._repr_svg_()
         except Exception as e:
-            print(f"Fel: {e}")
+            print(f"Fel vid analys: {e}")
             
     return render_template_string(HTML_TEMPLATE, tree_svg=tree_svg, sentence=sentence)
 
 if __name__ == "__main__":
-
-    app.run(debug=False, port=5000)
-
+    # På Render används port-miljövariabeln automatiskt, lokalt körs den på 5000
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
