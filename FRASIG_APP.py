@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 # 1. Ladda modellerna vid start
 print("Laddar High-Precision-modeller...")
-nlp = spacy.load("sv_core_news_lg")
+nlp = spacy.load("sv_core_news_md")
 if "benepar" not in nlp.pipe_names:
     nlp.add_pipe("benepar", config={"model": "benepar_sv2"})
 
@@ -149,4 +149,5 @@ def index():
     return render_template_string(HTML_TEMPLATE, tree_svg=tree_svg, sentence=sentence)
 
 if __name__ == "__main__":
+
     app.run(debug=False, port=5000)
