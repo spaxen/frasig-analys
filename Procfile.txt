@@ -1,0 +1,1 @@
+web: gunicorn FRASIG_APP:app
