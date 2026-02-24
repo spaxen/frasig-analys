@@ -125,5 +125,6 @@ def index():
     return render_template_string(HTML_TEMPLATE, tree_svg=tree_svg, sentence=sentence)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))  # Använd port 10000 om ingen miljövariabel finns
     app.run(host="0.0.0.0", port=port)
+
