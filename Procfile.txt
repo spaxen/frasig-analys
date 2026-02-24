@@ -1,1 +1,1 @@
-web: gunicorn FRASIG_APP:app
+web: gunicorn FRASIG_APP:app --bind 0.0.0.0:10000 --timeout 600
