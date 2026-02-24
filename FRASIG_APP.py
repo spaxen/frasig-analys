@@ -1,3 +1,5 @@
+# Lägg till detta högst upp vid de andra import-raderna
+import benepar
 import os
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
@@ -13,6 +15,11 @@ app = Flask(__name__)
 
 # 1. Ladda modellerna vid start
 print("Laddar High-Precision-modeller...")
+# Lägg till detta precis innan nlp = spacy.load...
+try:
+    benepar.download_model("benepar_sv2")
+except Exception as e:
+    print(f"Modellen fanns redan eller kunde inte laddas: {e}")
 nlp = spacy.load("sv_core_news_md")
 if "benepar" not in nlp.pipe_names:
     nlp.add_pipe("benepar", config={"model": "benepar_sv2"})
@@ -151,3 +158,4 @@ def index():
 if __name__ == "__main__":
 
     app.run(debug=False, port=5000)
+
